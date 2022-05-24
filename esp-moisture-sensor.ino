@@ -3,8 +3,8 @@
 #define SensorPin A0
 
 // wifi
-const char *ssid = "";
-const char *password = "";
+const char *ssid = "Mirai Botnet";
+const char *password = "c3ntr!fug3~";
 
 // mqtt
 const char* mqtt_server = "1.1.1.1";
@@ -35,7 +35,6 @@ void setup() {
 }
 
 void connectToWiFi() {
-//Connect to WiFi Network
   Serial.println();
   Serial.println();
   Serial.print("Connecting to Wifi");
@@ -60,8 +59,7 @@ void connectToWiFi() {
 }
 
 void loop() {
-Serial.println("========================");
-Serial.println("Loop");
+  Serial.println("========================");
   // put your main code here, to run repeatedly:
   digitalWrite(LED_BUILTIN, LOW);
   delay(2000);
