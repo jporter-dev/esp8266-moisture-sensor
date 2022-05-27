@@ -1,21 +1,28 @@
 #include "ESP8266WiFi.h"
+#include "PubSubClient.h"
+#include "Environment.h"
 
 #define SensorPin A0
 
 // wifi
-const char *ssid = "Mirai Botnet";
-const char *password = "c3ntr!fug3~";
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
 
 // mqtt
-const char* mqtt_server = "1.1.1.1";
-const char* sensor_topic = "moisture";
-const char* mqtt_username = "username";
-const char* mqtt_password = "password";
+const char* mqtt_host = MQTT_HOST;
+const int mqtt_port = MQTT_PORT;
+const char* sensor_topic = MQTT_TOPIC;
+const char* mqtt_username = MQTT_USERNAME;
+const char* mqtt_password = MQTT_PASSWORD;
 
 // device identifier
-const char* clientID = "test_esp_moisture_sensor";
+const char* clientID = MQTT_CLIENT_ID;
+
+// polling rate
+const int polling_interval_s = POLLING_INTERVAL_S;
 
 WiFiClient wifiClient;
+PubSubClient client(mqtt_host, mqtt_port, wifiClient);
 
 void setup() {
   Serial.begin(115200);
@@ -23,6 +30,7 @@ void setup() {
 
   // setup wifi
   connectToWiFi();
+  connectToMqtt();
 
   // setup builtin led
   delay(1000);
@@ -30,8 +38,7 @@ void setup() {
 
   // setup sensor pin
   Serial.setTimeout(2000);
-  float sensorValue = analogRead(SensorPin);
-  Serial.println(sensorValue);
+  readSensorAndPublish();
 }
 
 void connectToWiFi() {
@@ -58,15 +65,41 @@ void connectToWiFi() {
     Serial.println(F("Setup ready"));
 }
 
-void loop() {
+void connectToMqtt() {
+  if (client.connect(clientID, mqtt_username, mqtt_password)) {
+    Serial.println("Connected to MQTT Broker!");
+  }
+  else {
+    Serial.println("Connection to MQTT Broker failed...");
+  }
+}
+
+float readSensorAndPublish() {
+  float sensorValue = analogRead(SensorPin);
+  Serial.println("publishing sensor value: " + String(sensorValue) + "to topic: " + sensor_topic);
+
+  // publish
+  client.connect(clientID, mqtt_username, mqtt_password);
+  delay(10);
+  client.publish(sensor_topic, String(sensorValue).c_str());
+
+  return sensorValue;
+}
+
+void run() {
   Serial.println("========================");
   // put your main code here, to run repeatedly:
   digitalWrite(LED_BUILTIN, LOW);
-  delay(2000);
 
-  float sensorValue = analogRead(SensorPin);
-  Serial.println(sensorValue);
+  readSensorAndPublish();
 
+  delay(3000);
   digitalWrite(LED_BUILTIN, HIGH);
-  delay(5000);
+
+  // ESP.deepSleep(polling_interval_s*1e6);
+  delay(polling_interval_s*1000);
+}
+
+void loop() {
+  run();
 }

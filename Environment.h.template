@@ -1,0 +1,13 @@
+
+// wifi
+#define WIFI_SSID "wifi_ssid"
+#define WIFI_PASSWORD "password"
+
+#define MQTT_HOST ""
+#define MQTT_PORT 1883
+#define MQTT_TOPIC "soil-moisture"
+#define MQTT_USERNAME "mqtt"
+#define MQTT_PASSWORD "password"
+#define MQTT_CLIENT_ID "esp-moisture-sensor"
+
+#define POLLING_INTERVAL_S 3600
