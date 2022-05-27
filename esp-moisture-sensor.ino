@@ -26,19 +26,21 @@ PubSubClient client(mqtt_host, mqtt_port, wifiClient);
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  Serial.setTimeout(2000);
+
+  // Wait for serial to initialize.
+  while(!Serial) { }
 
   // setup wifi
   connectToWiFi();
   connectToMqtt();
 
+
   // setup builtin led
   delay(1000);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  // setup sensor pin
-  Serial.setTimeout(2000);
-  readSensorAndPublish();
+  run();
 }
 
 void connectToWiFi() {
@@ -76,12 +78,21 @@ void connectToMqtt() {
 
 float readSensorAndPublish() {
   float sensorValue = analogRead(SensorPin);
-  Serial.println("publishing sensor value: " + String(sensorValue) + "to topic: " + sensor_topic);
+  Serial.println("publishing sensor value [" + String(sensorValue) + "] to topic: " + sensor_topic);
 
   // publish
-  client.connect(clientID, mqtt_username, mqtt_password);
-  delay(10);
-  client.publish(sensor_topic, String(sensorValue).c_str());
+  // attempt to publish
+  if (client.publish(sensor_topic, String(sensorValue).c_str())) {
+    Serial.println("Moisture sent!");
+    Serial.println(sensor_topic);
+  }
+  else {
+    // reconnect and publish on connect failure
+    Serial.println("Moisture failed to send. Reconnecting to MQTT Broker and trying again...");
+    client.connect(clientID, mqtt_username, mqtt_password);
+    delay(10);
+    client.publish(sensor_topic, String(sensorValue).c_str());
+  }
 
   return sensorValue;
 }
@@ -89,17 +100,16 @@ float readSensorAndPublish() {
 void run() {
   Serial.println("========================");
   // put your main code here, to run repeatedly:
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, HIGH);
 
   readSensorAndPublish();
 
-  delay(3000);
-  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("Sleeping...");
 
-  // ESP.deepSleep(polling_interval_s*1e6);
-  delay(polling_interval_s*1000);
+  delay(5000);
+  // digitalWrite(LED_BUILTIN, LOW);
+
+  ESP.deepSleep(polling_interval_s*1e6);
 }
 
-void loop() {
-  run();
-}
+void loop() {}
