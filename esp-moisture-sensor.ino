@@ -9,22 +9,23 @@ const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 
 // mqtt
-const char* mqtt_host = MQTT_HOST;
-const int mqtt_port = MQTT_PORT;
-const char* sensor_topic = MQTT_TOPIC;
-const char* mqtt_username = MQTT_USERNAME;
-const char* mqtt_password = MQTT_PASSWORD;
-
-// device identifier
-const char* clientID = MQTT_CLIENT_ID;
+const char* mqttHost = MQTT_HOST;
+const int mqttPort = MQTT_PORT;
+const char* mqttUsername = MQTT_USERNAME;
+const char* mqttPassword = MQTT_PASSWORD;
+const char* clientId = HASS_DEVICE_ID;
+// <discovery_prefix>/<component>/<node_id>/
+char *sensorTopic;
 
 // polling rate
-const int polling_interval_s = POLLING_INTERVAL_S;
+const int pollingInterval = POLLING_INTERVAL_S;
 
 WiFiClient wifiClient;
-PubSubClient client(mqtt_host, mqtt_port, wifiClient);
+PubSubClient client(mqttHost, mqttPort, wifiClient);
 
 void setup() {
+  asprintf(&sensorTopic, "%s/%s/%s", HASS_DISCOVERY_PREFIX, "sensor", clientId);
+
   Serial.begin(115200);
   Serial.setTimeout(2000);
 
@@ -34,7 +35,6 @@ void setup() {
   // setup wifi
   connectToWiFi();
   connectToMqtt();
-
 
   // setup builtin led
   delay(1000);
@@ -51,7 +51,7 @@ void connectToWiFi() {
   WiFi.begin(ssid, password);
   int retries = 0;
 
-  while ((WiFi.status() != WL_CONNECTED) && (retries < 15)) {
+  while ((WiFi.status() != WL_CONNECTED) && (retries < 30)) {
     retries++;
     delay(500);
     Serial.print(".");
@@ -68,30 +68,44 @@ void connectToWiFi() {
 }
 
 void connectToMqtt() {
-  if (client.connect(clientID, mqtt_username, mqtt_password)) {
+  if (client.connect(clientId, mqttUsername, mqttPassword)) {
     Serial.println("Connected to MQTT Broker!");
+    configureHassSensor();
   }
   else {
     Serial.println("Connection to MQTT Broker failed...");
   }
 }
 
+void configureHassSensor() {
+  const String hassConfig = "{\"name\":\""+ String(HASS_DEVICE_NAME) +"\",\"state_topic\":\""+ String(sensorTopic) +"/state\",\"unit_of_measurement\":\"?\",\"value_template\":\"{{ value_json.soil_moisture}}\" }";
+  Serial.println("Configuring HASS sensor...");
+  Serial.println("Publishing to MQTT..." + String(sensorTopic) + "/config");
+  Serial.println(hassConfig);
+
+  client.publish((String(sensorTopic) + "/config").c_str(), hassConfig.c_str());
+}
+
+boolean publishSensorData(float value) {
+  const String sensorData = "{\"soil_moisture\": " + String(value) + "}";
+  return client.publish((String(sensorTopic) + "/state").c_str(), sensorData.c_str());
+}
+
 float readSensorAndPublish() {
   float sensorValue = analogRead(SensorPin);
-  Serial.println("publishing sensor value [" + String(sensorValue) + "] to topic: " + sensor_topic);
+  Serial.println("publishing sensor value [" + String(sensorValue) + "] to topic: " + String(sensorTopic) + "/state");
 
   // publish
   // attempt to publish
-  if (client.publish(sensor_topic, String(sensorValue).c_str())) {
+  if (publishSensorData(sensorValue)) {
     Serial.println("Moisture sent!");
-    Serial.println(sensor_topic);
   }
   else {
     // reconnect and publish on connect failure
     Serial.println("Moisture failed to send. Reconnecting to MQTT Broker and trying again...");
-    client.connect(clientID, mqtt_username, mqtt_password);
+    client.connect(clientId, mqttUsername, mqttPassword);
     delay(10);
-    client.publish(sensor_topic, String(sensorValue).c_str());
+    publishSensorData(sensorValue);
   }
 
   return sensorValue;
@@ -109,7 +123,7 @@ void run() {
   delay(5000);
   // digitalWrite(LED_BUILTIN, LOW);
 
-  ESP.deepSleep(polling_interval_s*1e6);
+  ESP.deepSleep(pollingInterval*1e6);
 }
 
 void loop() {}
