@@ -118,10 +118,10 @@ void run() {
 
   readSensorAndPublish();
 
-  Serial.println("Sleeping...");
+  Serial.println("Sleeping for "+ String(pollingInterval*1e6) +" microseconds...");
 
   delay(5000);
-  // digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
 
   ESP.deepSleep(pollingInterval*1e6);
 }
